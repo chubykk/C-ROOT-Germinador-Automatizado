@@ -1,1 +1,54 @@
+import machine, network, time, urequests
+import utime
+from machine import ADC, Pin
 
+
+ssid = 'Red Alumnos' 
+password = ''
+url = "https://api.thingspeak.com/update?api_key=YQO7R1P2A1DXTD7W"
+
+red = network.WLAN(network.STA_IF)
+
+red.active(True)
+red.connect(ssid, password)
+
+while red.isconnected() == False:
+  pass
+
+print('Conexión correcta')
+print(red.ifconfig())
+
+ultima_peticion = 0
+intervalo_peticiones = 10
+
+
+bomba = machine.Pin(15, machine.Pin.OUT)
+pin = ADC(Pin(26))
+
+
+def reconectar():
+    print('Fallo de conexión. Reconectando...')
+    time.sleep(10)
+    machine.reset()
+
+while True:
+    try:
+        if (time.time() - ultima_peticion) > intervalo_peticiones:
+            humedad = 100-((100/65535)*(pin.read_u16()))
+            print(humedad)
+            utime.sleep(2.5)
+            if humedad < 75:
+                bomba.value(1)
+                print("prendido")
+                utime.sleep(3)
+                bomba.value(0)
+                print("apagado")
+                utime.sleep(3)
+            
+            respuesta = urequests.get(url + "&field2=" + str(humedad))
+            print ("Respuesta: " + str(respuesta.status_code))
+            respuesta.close ()
+            ultima_peticion = time.time()
+            
+    except OSError as e:
+        reconectar()
